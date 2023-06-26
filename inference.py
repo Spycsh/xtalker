@@ -12,7 +12,11 @@ from src.generate_batch import get_data
 from src.generate_facerender_batch import get_facerender_data
 from src.utils.init_path import init_path
 
+from datetime import datetime
+import json
 def main(args):
+    import random
+    random.seed(319)
     #torch.backends.cudnn.enabled = False
 
     pic_path = args.source_image
@@ -33,22 +37,40 @@ def main(args):
     sadtalker_paths = init_path(args.checkpoint_dir, os.path.join(current_root_path, 'src/config'), args.size, args.old_version, args.preprocess)
 
     #init model
+    timestamp = datetime.timestamp(datetime.now())
+    print("start to generate video...", timestamp)
+    import time
     preprocess_model = CropAndExtract(sadtalker_paths, device)
-
-    audio_to_coeff = Audio2Coeff(sadtalker_paths,  device)
+    start_time = time.time()
     
+    audio_to_coeff = Audio2Coeff(sadtalker_paths,  device)
+    end_time = time.time()
+    print("0000: Audio2Coeff")
+    print(end_time - start_time)
+    start_time = end_time
     animate_from_coeff = AnimateFromCoeff(sadtalker_paths, device)
-
+    end_time = time.time()
+    print("0001: AnimateFromCoeff")
+    print(end_time - start_time)
+    start_time = end_time
     #crop image and extract 3dmm from image
     first_frame_dir = os.path.join(save_dir, 'first_frame_dir')
     os.makedirs(first_frame_dir, exist_ok=True)
     print('3DMM Extraction for source image')
+
     first_coeff_path, crop_pic_path, crop_info =  preprocess_model.generate(pic_path, first_frame_dir, args.preprocess,\
                                                                              source_image_flag=True, pic_size=args.size)
+    end_time = time.time()
+    print("0002: preprocess_model generate")
+    print(end_time - start_time)
+    start_time = end_time
+
     if first_coeff_path is None:
         print("Can't get the coeffs of the input")
         return
-
+    print("eyeblick? pose?")
+    print(ref_eyeblink)
+    print(ref_pose)
     if ref_eyeblink is not None:
         ref_eyeblink_videoname = os.path.splitext(os.path.split(ref_eyeblink)[-1])[0]
         ref_eyeblink_frame_dir = os.path.join(save_dir, ref_eyeblink_videoname)
@@ -73,6 +95,10 @@ def main(args):
     #audio2ceoff
     batch = get_data(first_coeff_path, audio_path, device, ref_eyeblink_coeff_path, still=args.still)
     coeff_path = audio_to_coeff.generate(batch, save_dir, pose_style, ref_pose_coeff_path)
+    end_time = time.time()
+    print("0003: audio_to_coeff generate...")
+    print(end_time - start_time)
+    start_time = end_time
 
     # 3dface render
     if args.face3dvis:
@@ -80,13 +106,53 @@ def main(args):
         gen_composed_video(args, device, first_coeff_path, coeff_path, audio_path, os.path.join(save_dir, '3dface.mp4'))
     
     #coeff2video
-    data = get_facerender_data(coeff_path, crop_pic_path, first_coeff_path, audio_path, 
-                                batch_size, input_yaw_list, input_pitch_list, input_roll_list,
-                                expression_scale=args.expression_scale, still_mode=args.still, preprocess=args.preprocess, size=args.size)
-    
+    if args.rank == 0:
+        data = get_facerender_data(coeff_path, crop_pic_path, first_coeff_path, audio_path,
+                                    batch_size, input_yaw_list, input_pitch_list, input_roll_list,
+                                    expression_scale=args.expression_scale, still_mode=args.still, preprocess=args.preprocess, size=args.size)
+        shutil.rmtree("workspace", ignore_errors=True)
+        os.mkdir("workspace")
+        #dict_keys(['source_image', 'source_semantics', 'frame_num', 'target_semantics_list', 'video_name', 'audio_path'])
+        torch.save(data['source_image'], 'workspace/source_image.pt')
+        torch.save(data['source_semantics'], 'workspace/source_semantics.pt')
+        torch.save(data['target_semantics_list'], 'workspace/target_semantics_list.pt')
+        meta = {}
+        meta['frame_num'] = data['frame_num']
+        meta['video_name'] = data['video_name']
+        meta['audio_path'] = data['audio_path']
+        with open("workspace/meta.json", "w") as outfile:
+            json.dump(meta, outfile)
+    else:
+        data = {}
+        for pt_path in ['workspace/source_image.pt','workspace/source_semantics.pt', 'workspace/target_semantics_list.pt']:
+            while os.path.exists(pt_path) == False:
+                time.sleep(0.2)
+            pkey = pt_path.split("/")[1].split(".")[0]
+            data[pkey] = torch.load(pt_path)
+        while os.path.exists("workspace/meta.json") == False:
+            time.sleep(0.2)
+        with open("workspace/meta.json", "r") as read_content:
+            meta = json.load(read_content)
+            data['frame_num'] = meta['frame_num']
+            data['video_name'] = meta['video_name']
+            data['audio_path'] = meta['audio_path']
+        #print(data)
+#    if args.rank == 0:
+#        torch.save(data['target_semantics_list'], 'target_semantics.pt')
+#    else:
+#        while os.path.exists('target_semantics.pt') == False:
+#            time.sleep(0.2)
+#        data['target_semantics_list'] = torch.load('target_semantics.pt')
     result = animate_from_coeff.generate(data, save_dir, pic_path, crop_info, \
-                                enhancer=args.enhancer, background_enhancer=args.background_enhancer, preprocess=args.preprocess, img_size=args.size)
-    
+                                enhancer=args.enhancer, background_enhancer=args.background_enhancer, preprocess=args.preprocess, img_size=args.size,rank=args.rank, p_num=args.p_num)
+    #os.remove('target_semantics.pt')
+    shutil.rmtree("workspace")
+    timestamp = datetime.timestamp(datetime.now())
+    end_time = time.time()
+    print("0004: render+enhance...")
+    print(end_time - start_time)
+    start_time = end_time
+    print("generate video done...", timestamp)
     shutil.move(result, save_dir+'.mp4')
     print('The generated video is named:', save_dir+'.mp4')
 
@@ -95,7 +161,6 @@ def main(args):
 
     
 if __name__ == '__main__':
-
     parser = ArgumentParser()  
     parser.add_argument("--driven_audio", default='./examples/driven_audio/bus_chinese.wav', help="path to driven audio")
     parser.add_argument("--source_image", default='./examples/source_image/full_body_1.png', help="path to source image")
@@ -133,7 +198,9 @@ if __name__ == '__main__':
     parser.add_argument('--camera_d', type=float, default=10.)
     parser.add_argument('--z_near', type=float, default=5.)
     parser.add_argument('--z_far', type=float, default=15.)
-
+    # distributed infer
+    parser.add_argument('--rank', type=int, default=0)
+    parser.add_argument('--p_num', type=int, default=1)
     args = parser.parse_args()
 
     if torch.cuda.is_available() and not args.cpu:

@@ -24,6 +24,7 @@ class KeypointExtractor():
         except:
             root_path = 'gfpgan/weights'
 
+        print("---------device-----------", device)
         self.detector = init_alignment_model('awing_fan',device=device, model_rootpath=root_path)   
         self.det_net = init_detection_model('retinaface_resnet50', half=False,device=device, model_rootpath=root_path)
 

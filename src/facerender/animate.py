@@ -31,7 +31,6 @@ class AnimateFromCoeff():
 
         with open(sadtalker_path['facerender_yaml']) as f:
             config = yaml.safe_load(f)
-
         generator = OcclusionAwareSPADEGenerator(**config['model_params']['generator_params'],
                                                     **config['model_params']['common_params'])
         kp_extractor = KPDetector(**config['model_params']['kp_detector_params'],
@@ -75,7 +74,11 @@ class AnimateFromCoeff():
         self.generator.eval()
         self.he_estimator.eval()
         self.mapping.eval()
-         
+        import intel_extension_for_pytorch as ipex
+        ipex.optimize(self.kp_extractor, dtype=torch.bfloat16)
+        ipex.optimize(self.generator, dtype=torch.bfloat16)
+        ipex.optimize(self.he_estimator, dtype=torch.bfloat16)
+        ipex.optimize(self.mapping, dtype=torch.bfloat16)
         self.device = device
     
     def load_cpk_facevid2vid_safetensor(self, checkpoint_path, generator=None, 
@@ -149,7 +152,7 @@ class AnimateFromCoeff():
 
         return checkpoint['epoch']
 
-    def generate(self, x, video_save_dir, pic_path, crop_info, enhancer=None, background_enhancer=None, preprocess='crop', img_size=256):
+    def generate(self, x, video_save_dir, pic_path, crop_info, enhancer=None, background_enhancer=None, preprocess='crop', img_size=256, rank=0, p_num=1):
 
         source_image=x['source_image'].type(torch.FloatTensor)
         source_semantics=x['source_semantics'].type(torch.FloatTensor)
@@ -177,7 +180,7 @@ class AnimateFromCoeff():
 
         predictions_video = make_animation(source_image, source_semantics, target_semantics,
                                         self.generator, self.kp_extractor, self.he_estimator, self.mapping, 
-                                        yaw_c_seq, pitch_c_seq, roll_c_seq, use_exp = True)
+                                        yaw_c_seq, pitch_c_seq, roll_c_seq, use_exp = True, rank=rank, p_num=p_num)
 
         predictions_video = predictions_video.reshape((-1,)+predictions_video.shape[2:])
         predictions_video = predictions_video[:frame_num]
