@@ -1,6 +1,6 @@
 # XTalker
 
-XTalker (**X**eon Sad**Talker**) is a faster and optimized implementation of [SadTalker](https://github.com/OpenTalker/SadTalker). It utilizes low precision and parallelism to boost the inference speed by up to **10x** compared to the original implementation on one Xeon CPU (without any GPU used). Now it only optimizes the rendering stage, which is one of the two time-consuming bottlenecks. We may consider optimized the other, namely the enhancing stage in the future. This project is experimental and actively under development. Welcome to any advices and ideas.
+XTalker (**X**eon Sad**Talker**) is a faster and optimized implementation of [SadTalker](https://github.com/OpenTalker/SadTalker). It utilizes low precision and parallelism to boost the inference speed by up to **10x** compared to the original implementation on one Xeon CPU (without any GPU used). Now it only optimizes the rendering stage, which is one of the two time-consuming bottlenecks. We will optimize the other, namely the enhancing stage in the future. This project is experimental and actively under development. Welcome to any advices and ideas.
 
 ## How to use
 
