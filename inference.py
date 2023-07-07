@@ -125,6 +125,9 @@ def main(args):
     else:
         data = {}
         for pt_path in ['workspace/source_image.pt','workspace/source_semantics.pt', 'workspace/target_semantics_list.pt']:
+            while os.path.exists(pt_path) == False:
+                time.sleep(0.2)
+
             pkey = pt_path.split("/")[1].split(".")[0]
             try:
                 data[pkey] = torch.load(pt_path)
