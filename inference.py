@@ -125,10 +125,13 @@ def main(args):
     else:
         data = {}
         for pt_path in ['workspace/source_image.pt','workspace/source_semantics.pt', 'workspace/target_semantics_list.pt']:
-            while os.path.exists(pt_path) == False:
-                time.sleep(0.2)
             pkey = pt_path.split("/")[1].split(".")[0]
-            data[pkey] = torch.load(pt_path)
+            try:
+                data[pkey] = torch.load(pt_path)
+            except:
+                print("reload...")
+                time.sleep(1)
+                data[pkey] = torch.load(pt_path)
         while os.path.exists("workspace/meta.json") == False:
             time.sleep(0.2)
         with open("workspace/meta.json", "r") as read_content:
