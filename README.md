@@ -4,6 +4,12 @@ XTalker (**X**eon Sad**Talker**) is a faster and optimized implementation of [Sa
 
 ## How to use
 
+* Install PyTorch
+
+```
+pip install torch==2.0.0+cpu torchvision==0.15.1+cpu torchaudio==2.0.1 --index-url --index-url https://download.pytorch.org/whl/cpu
+```
+
 * Install related dependencies of SadTalker following [README](README_SADTALKER.md)
 
 * Install [Intel Extension For PyTorch](https://github.com/intel/intel-extension-for-pytorch)
