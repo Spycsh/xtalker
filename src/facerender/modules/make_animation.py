@@ -104,30 +104,16 @@ def make_animation(source_image, source_semantics, target_semantics,
                             yaw_c_seq=None, pitch_c_seq=None, roll_c_seq=None,
                             use_exp=True, use_half=False, rank=0, p_num=1):
     print(f"rank, p_num: {rank}, {p_num}")
-    with torch.no_grad():
-        predictions = []
-        import time
-        import os
-        with torch.cpu.amp.autocast():
-            start_time = time.time()
+    # ++++ quantize
+    import os
+    if not os.path.exists("generator_int8"):
+        # do the quantization!
+        print(target_semantics.shape[1])
+        def calib_func(model):
             kp_canonical = kp_detector(source_image)
-            end_time = time.time()
-            print("[kp_detector]:")
-            print(end_time - start_time)
-            start_time = end_time
             he_source = mapping(source_semantics)
-            end_time = time.time()
-            print("[mapping]:")
-            print(end_time - start_time)
-            start_time = end_time
             kp_source = keypoint_transformation(kp_canonical, he_source)
-            end_time = time.time()
-            print(end_time - start_time)
-            for frame_idx in tqdm(range(target_semantics.shape[1]), 'Face Renderer:'):
-                if frame_idx % p_num != rank:
-                    continue
-                #if frame_idx >24:
-                #    continue
+            for frame_idx in tqdm(range(8), 'Face Renderer:'):  # calib 8 iterations
                 target_semantics_frame = target_semantics[:, frame_idx]
                 he_driving = mapping(target_semantics_frame)
                 if yaw_c_seq is not None:
@@ -136,55 +122,86 @@ def make_animation(source_image, source_semantics, target_semantics,
                     he_driving['pitch_in'] = pitch_c_seq[:, frame_idx]
                 if roll_c_seq is not None:
                     he_driving['roll_in'] = roll_c_seq[:, frame_idx]
-            
-                kp_driving = keypoint_transformation(kp_canonical, he_driving)
-                
-                kp_norm = kp_driving
-                #breakpoint()
-                out = generator(source_image, kp_source=kp_source, kp_driving=kp_norm)
-                #print(f"{rank}:{frame_idx}")
-                #print(out['prediction'])
-                predictions.append(out['prediction'])
-            folder_name = "logs"
-            file_name = f'{p_num}_{rank}.npz'
-            if not os.path.exists(folder_name):
-                os.makedirs(folder_name)
-            file_path = os.path.join(folder_name, file_name)
-            f = open(file_path, "w")
-            np.savez(file_path, *predictions)
-            # master process will be pending here to collect all the predictions
-            # ... pending ...
-            import re
-            def atoi(text):
-                return int(text) if text.isdigit() else text
-            def natural_keys(text):
-                return [ atoi(c) for c in re.split(r'(\d+)', text) ]
-            if rank == 0:
-                while len(os.listdir(folder_name)) < p_num:
-                    time.sleep(0.2)
-                # load all the npz arrays, merge by sequence
-                #npz_file_paths = sorted(os.listdir(folder_name))
-                npz_file_paths=os.listdir(folder_name)
-                npz_file_paths.sort(key=natural_keys)
-                print("start to merge...")
-                print(f"npz_file_paths: {npz_file_paths}")
-            else:
-                exit(0)
-            aggregated_lst = []
-            for npz_file_path in npz_file_paths:
-                npz_file = np.load(os.path.join(folder_name, npz_file_path))
-                aggregated_lst.append([npz_file[i] for i in npz_file.files])
-            #aggregated_predictions = [torch.from_numpy(x) for y in zip(*aggregated_lst) for x in y]
-            # agg lst elements may have different length!
-            #exit(0)
-            import itertools
-            padded_preds = [x for y in itertools.zip_longest(*aggregated_lst) for x in y]
-            print("padded preds length:")
-            print(len(padded_preds))
-            aggregated_predictions = [torch.from_numpy(i) for i in padded_preds if i is not None]
-            #predictions_ts = torch.stack(predictions, dim=1)
 
-            predictions_ts = torch.stack(aggregated_predictions, dim=1)
+                kp_driving = keypoint_transformation(kp_canonical, he_driving)
+
+                kp_norm = kp_driving
+                out = generator(source_image, kp_source=kp_source, kp_driving=kp_norm)
+
+        from neural_compressor import PostTrainingQuantConfig, quantization
+        conf = PostTrainingQuantConfig()
+        model = quantization.fit(generator, conf, calib_func=calib_func)
+        generator = model
+    else:
+        from neural_compressor.utils.pytorch import load
+        generator = load("generator_int8", generator)
+    # ++++
+    with torch.no_grad():
+        predictions = []
+        import time
+        import os
+        #with torch.cpu.amp.autocast():
+        kp_canonical = kp_detector(source_image)
+        he_source = mapping(source_semantics)
+        kp_source = keypoint_transformation(kp_canonical, he_source)
+        for frame_idx in tqdm(range(target_semantics.shape[1]), 'Face Renderer:'):
+            if frame_idx % p_num != rank:
+                continue
+            #if frame_idx >24:
+            #    continue
+            target_semantics_frame = target_semantics[:, frame_idx]
+            he_driving = mapping(target_semantics_frame)
+            if yaw_c_seq is not None:
+                he_driving['yaw_in'] = yaw_c_seq[:, frame_idx]
+            if pitch_c_seq is not None:
+                he_driving['pitch_in'] = pitch_c_seq[:, frame_idx]
+            if roll_c_seq is not None:
+                he_driving['roll_in'] = roll_c_seq[:, frame_idx]
+            kp_driving = keypoint_transformation(kp_canonical, he_driving)
+            kp_norm = kp_driving
+            out = generator(source_image, kp_source=kp_source, kp_driving=kp_norm)
+            #print(f"{rank}:{frame_idx}")
+            predictions.append(out['prediction'])
+        folder_name = "logs"
+        file_name = f'{p_num}_{rank}.npz'
+        if not os.path.exists(folder_name):
+            os.makedirs(folder_name)
+        file_path = os.path.join(folder_name, file_name)
+        f = open(file_path, "w")
+        np.savez(file_path, *predictions)
+        # master process will be pending here to collect all the predictions
+        # ... pending ...
+        import re
+        def atoi(text):
+            return int(text) if text.isdigit() else text
+        def natural_keys(text):
+            return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+        if rank == 0:
+            while len(os.listdir(folder_name)) < p_num:
+                time.sleep(0.5)
+            # load all the npz arrays, merge by sequence
+            #npz_file_paths = sorted(os.listdir(folder_name))
+            npz_file_paths=os.listdir(folder_name)
+            npz_file_paths.sort(key=natural_keys)
+            print("start to merge...")
+            print(f"npz_file_paths: {npz_file_paths}")
+        else:
+            exit(0)
+        aggregated_lst = []
+        for npz_file_path in npz_file_paths:
+            npz_file = np.load(os.path.join(folder_name, npz_file_path))
+            aggregated_lst.append([npz_file[i] for i in npz_file.files])
+        #aggregated_predictions = [torch.from_numpy(x) for y in zip(*aggregated_lst) for x in y]
+        # agg lst elements may have different length!
+        #exit(0)
+        import itertools
+        padded_preds = [x for y in itertools.zip_longest(*aggregated_lst) for x in y]
+        print("padded preds length:")
+        print(len(padded_preds))
+        aggregated_predictions = [torch.from_numpy(i) for i in padded_preds if i is not None]
+        #predictions_ts = torch.stack(predictions, dim=1)
+
+        predictions_ts = torch.stack(aggregated_predictions, dim=1)
     return predictions_ts
 
 class AnimateModel(torch.nn.Module):

@@ -4,6 +4,8 @@ XTalker (**X**eon Sad**Talker**) is a faster and optimized implementation of [Sa
 
 ## How to use
 
+### Acceleration by IPEX bf16
+
 * Install PyTorch
 
 ```
@@ -13,7 +15,13 @@ pip install torch==2.0.0+cpu torchvision==0.15.1+cpu torchaudio==2.0.1 --index-u
 * Install related dependencies of SadTalker following [README](README_SADTALKER.md)
 
 * Install [Intel Extension For PyTorch](https://github.com/intel/intel-extension-for-pytorch)
- 
+
+```
+python3.8 inference.py --driven_audio xxx.wav --source_image xxx.jpg --result_dir ./result  --cpu
+```
+
+### Acceleration by IOMP
+
 * Generate the parallelized execution script based on your hardware
 
 ```
@@ -26,6 +34,32 @@ Please change the parallelism number with your expected parallelism on your CPU.
 
 ```
 bash run_distributed_infer_<parallelism number>.sh
+```
+
+IOMP can be used together with IPEX bf16 to get a further acceleration.
+
+### Acceleration by int8 quantization
+
+Go to branch **int8**
+
+```
+pip install neural-compressor
+```
+
+```
+python3.8 inference.py --driven_audio xxx.wav --source_image xxx.jpg --result_dir ./result  --cpu
+```
+
+For the first time the model will be quantized and saved to `generator_int8`, and the following runs will load the quantized model from `generator_int8` to do inference.
+
+Notice, currently is IOMP is disabled for int8.
+
+### GC
+
+You can at any time do "garbage collection" when there is an abnormal exit by the following command:
+
+```
+bash gc.sh
 ```
 
 ## Acknowledgements

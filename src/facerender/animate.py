@@ -181,7 +181,6 @@ class AnimateFromCoeff():
         predictions_video = make_animation(source_image, source_semantics, target_semantics,
                                         self.generator, self.kp_extractor, self.he_estimator, self.mapping, 
                                         yaw_c_seq, pitch_c_seq, roll_c_seq, use_exp = True, rank=rank, p_num=p_num)
-
         predictions_video = predictions_video.reshape((-1,)+predictions_video.shape[2:])
         predictions_video = predictions_video[:frame_num]
 
@@ -191,7 +190,6 @@ class AnimateFromCoeff():
             image = np.transpose(image.data.cpu().numpy(), [1, 2, 0]).astype(np.float32)
             video.append(image)
         result = img_as_ubyte(video)
-
         ### the generated video is 256x256, so we keep the aspect ratio, 
         original_size = crop_info[0]
         if original_size:
