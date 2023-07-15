@@ -132,6 +132,7 @@ def make_animation(source_image, source_semantics, target_semantics,
         conf = PostTrainingQuantConfig()
         model = quantization.fit(generator, conf, calib_func=calib_func)
         generator = model
+        generator.save(f"generator_int8")
     else:
         from neural_compressor.utils.pytorch import load
         generator = load("generator_int8", generator)
