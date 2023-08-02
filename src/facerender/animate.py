@@ -75,10 +75,7 @@ class AnimateFromCoeff():
         self.he_estimator.eval()
         self.mapping.eval()
         import intel_extension_for_pytorch as ipex
-        ipex.optimize(self.kp_extractor, dtype=torch.bfloat16)
-        ipex.optimize(self.generator, dtype=torch.bfloat16)
-        ipex.optimize(self.he_estimator, dtype=torch.bfloat16)
-        ipex.optimize(self.mapping, dtype=torch.bfloat16)
+        self.generator = ipex.optimize(self.generator, dtype=torch.bfloat16)
         self.device = device
     
     def load_cpk_facevid2vid_safetensor(self, checkpoint_path, generator=None, 
