@@ -27,7 +27,7 @@ from src.utils.videoio import save_video_with_watermark
 
 class AnimateFromCoeff():
 
-    def __init__(self, sadtalker_path, device):
+    def __init__(self, sadtalker_path, device, bf16):
 
         with open(sadtalker_path['facerender_yaml']) as f:
             config = yaml.safe_load(f)
@@ -74,8 +74,10 @@ class AnimateFromCoeff():
         self.generator.eval()
         self.he_estimator.eval()
         self.mapping.eval()
-        import intel_extension_for_pytorch as ipex
-        self.generator = ipex.optimize(self.generator, dtype=torch.bfloat16)
+        self.bf16 = bf16
+        if self.bf16:
+            import intel_extension_for_pytorch as ipex
+            self.generator = ipex.optimize(self.generator, dtype=torch.bfloat16)
         self.device = device
     
     def load_cpk_facevid2vid_safetensor(self, checkpoint_path, generator=None, 
@@ -149,7 +151,7 @@ class AnimateFromCoeff():
 
         return checkpoint['epoch']
 
-    def generate(self, x, video_save_dir, pic_path, crop_info, enhancer=None, background_enhancer=None, preprocess='crop', img_size=256, rank=0, p_num=1):
+    def generate(self, x, video_save_dir, pic_path, crop_info, enhancer=None, background_enhancer=None, preprocess='crop', img_size=256, rank=0, p_num=1, bf16=False):
 
         source_image=x['source_image'].type(torch.FloatTensor)
         source_semantics=x['source_semantics'].type(torch.FloatTensor)
@@ -177,7 +179,7 @@ class AnimateFromCoeff():
 
         predictions_video = make_animation(source_image, source_semantics, target_semantics,
                                         self.generator, self.kp_extractor, self.he_estimator, self.mapping, 
-                                        yaw_c_seq, pitch_c_seq, roll_c_seq, use_exp = True, rank=rank, p_num=p_num)
+                                        yaw_c_seq, pitch_c_seq, roll_c_seq, use_exp = True, rank=rank, p_num=p_num, bf16=bf16)
 
         predictions_video = predictions_video.reshape((-1,)+predictions_video.shape[2:])
         predictions_video = predictions_video[:frame_num]

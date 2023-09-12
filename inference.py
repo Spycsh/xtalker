@@ -48,7 +48,7 @@ def main(args):
     print("0000: Audio2Coeff")
     print(end_time - start_time)
     start_time = end_time
-    animate_from_coeff = AnimateFromCoeff(sadtalker_paths, device)
+    animate_from_coeff = AnimateFromCoeff(sadtalker_paths, device, args.bf16)
     end_time = time.time()
     print("0001: AnimateFromCoeff")
     print(end_time - start_time)
@@ -150,7 +150,7 @@ def main(args):
 #            time.sleep(0.2)
 #        data['target_semantics_list'] = torch.load('target_semantics.pt')
     result = animate_from_coeff.generate(data, save_dir, pic_path, crop_info, \
-                                enhancer=args.enhancer, background_enhancer=args.background_enhancer, preprocess=args.preprocess, img_size=args.size,rank=args.rank, p_num=args.p_num)
+                                enhancer=args.enhancer, background_enhancer=args.background_enhancer, preprocess=args.preprocess, img_size=args.size,rank=args.rank, p_num=args.p_num, bf16=args.bf16)
     #os.remove('target_semantics.pt')
     shutil.rmtree("workspace")
     timestamp = datetime.timestamp(datetime.now())
@@ -207,8 +207,10 @@ if __name__ == '__main__':
     # distributed infer
     parser.add_argument('--rank', type=int, default=0)
     parser.add_argument('--p_num', type=int, default=1)
-    args = parser.parse_args()
+    # bf16
+    parser.add_argument('--bf16', dest="bf16", action="store_true", help="whether to use bf16")
 
+    args = parser.parse_args()
     if torch.cuda.is_available() and not args.cpu:
         args.device = "cuda"
     else:

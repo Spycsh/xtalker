@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm 
 import re, itertools
+import contextlib
 
 def normalize_kp(kp_source, kp_driving, kp_driving_initial, adapt_movement_scale=False,
                  use_relative_movement=False, use_relative_jacobian=False):
@@ -103,7 +104,7 @@ def keypoint_transformation(kp_canonical, he, wo_exp=False):
 def make_animation(source_image, source_semantics, target_semantics,
                             generator, kp_detector, he_estimator, mapping, 
                             yaw_c_seq=None, pitch_c_seq=None, roll_c_seq=None,
-                            use_exp=True, use_half=False, rank=0, p_num=1):
+                            use_exp=True, use_half=False, rank=0, p_num=1, bf16=False):
     print(f"rank, p_num: {rank}, {p_num}")
     with torch.no_grad():
         predictions = []
@@ -137,7 +138,7 @@ def make_animation(source_image, source_semantics, target_semantics,
                 he_driving['roll_in'] = roll_c_seq[:, frame_idx]
             kp_driving = keypoint_transformation(kp_canonical, he_driving)
             kp_norm = kp_driving
-            with torch.cpu.amp.autocast(enabled=True, dtype=torch.bfloat16, cache_enabled=True):
+            with torch.cpu.amp.autocast(enabled=True, dtype=torch.bfloat16, cache_enabled=True) if bf16 else contextlib.nullcontext():
                 out = generator(source_image, kp_source=kp_source, kp_driving=kp_norm)
                 # print(f"{rank}:{frame_idx}")
                 #print(out['prediction'])

@@ -17,7 +17,7 @@ pip install torch==2.0.0+cpu torchvision==0.15.1+cpu torchaudio==2.0.1 --index-u
 * Install [Intel Extension For PyTorch](https://github.com/intel/intel-extension-for-pytorch)
 
 ```
-python3.8 inference.py --driven_audio xxx.wav --source_image xxx.jpg --result_dir ./result  --cpu
+python3.8 inference.py --driven_audio xxx.wav --source_image xxx.jpg --result_dir ./results --cpu --bf16
 ```
 
 ### Acceleration by IOMP
@@ -33,10 +33,17 @@ export LD_PRELOAD=<PATH TO tcmalloc.so>:<PATH TO libiomp5.so>
 * Generate the parallelized execution script based on your hardware
 
 ```
-python generate_distributed_infer.py --slot=<parallelism number>
+python generate_distributed_infer.py --slot=<parallelism number> --driven_audio xxx.wav --source_image xxx.jpg
 ```
 
 Please change the parallelism number with your expected parallelism on your CPU.
+
+IOMP can be used together with IPEX bf16 to get a further acceleration. You just need to add `--bf16` when generating the
+`run_distributed_infer_xx.sh`, like following
+
+```
+python generate_distributed_infer.py --slot=<parallelism number> --driven_audio xxx.wav --source_image xxx.jpg --bf16
+```
 
 * Run the script
 
@@ -44,7 +51,6 @@ Please change the parallelism number with your expected parallelism on your CPU.
 bash run_distributed_infer_<parallelism number>.sh
 ```
 
-IOMP can be used together with IPEX bf16 to get a further acceleration.
 
 ### Acceleration by int8 quantization
 
@@ -55,7 +61,7 @@ pip install neural-compressor
 ```
 
 ```
-python3.8 inference.py --driven_audio xxx.wav --source_image xxx.jpg --result_dir ./result  --cpu
+python3.8 inference.py --driven_audio xxx.wav --source_image xxx.jpg --result_dir ./results  --cpu
 ```
 
 For the first time the model will be quantized and saved to `generator_int8`, and the following runs will load the quantized model from `generator_int8` to do inference.
