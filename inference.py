@@ -104,7 +104,7 @@ def main(args):
     if args.face3dvis:
         from src.face3d.visualize import gen_composed_video
         gen_composed_video(args, device, first_coeff_path, coeff_path, audio_path, os.path.join(save_dir, '3dface.mp4'))
-    
+
     #coeff2video
     if args.rank == 0:
         data = get_facerender_data(coeff_path, crop_pic_path, first_coeff_path, audio_path,
@@ -142,17 +142,13 @@ def main(args):
             data['frame_num'] = meta['frame_num']
             data['video_name'] = meta['video_name']
             data['audio_path'] = meta['audio_path']
-        #print(data)
-#    if args.rank == 0:
-#        torch.save(data['target_semantics_list'], 'target_semantics.pt')
-#    else:
-#        while os.path.exists('target_semantics.pt') == False:
-#            time.sleep(0.2)
-#        data['target_semantics_list'] = torch.load('target_semantics.pt')
+
     result = animate_from_coeff.generate(data, save_dir, pic_path, crop_info, \
                                 enhancer=args.enhancer, background_enhancer=args.background_enhancer, preprocess=args.preprocess, img_size=args.size,rank=args.rank, p_num=args.p_num, bf16=args.bf16)
     #os.remove('target_semantics.pt')
-    shutil.rmtree("workspace")
+    shutil.rmtree("logs", ignore_errors=True)
+    shutil.rmtree("enhancer_logs", ignore_errors=True)
+    shutil.rmtree("workspace", ignore_errors=True)
     timestamp = datetime.timestamp(datetime.now())
     end_time = time.time()
     print("0004: render+enhance...")

@@ -150,6 +150,7 @@ def make_animation(source_image, source_semantics, target_semantics,
         file_path = os.path.join(folder_name, file_name)
         f = open(file_path, "w")
         np.savez(file_path, *predictions)
+        f.close()
         # master process will be pending here to collect all the predictions
         # ... pending ...
         def atoi(text):
@@ -166,7 +167,8 @@ def make_animation(source_image, source_semantics, target_semantics,
             print("start to merge...")
             print(f"npz_file_paths: {npz_file_paths}")
         else:
-            exit(0)
+            # exit(0)
+            return None
         aggregated_lst = []
         for npz_file_path in npz_file_paths:
             npz_file = np.load(os.path.join(folder_name, npz_file_path))

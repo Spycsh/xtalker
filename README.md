@@ -1,6 +1,6 @@
 # XTalker
 
-XTalker (**X**eon Sad**Talker**) is a faster and optimized implementation of [SadTalker](https://github.com/OpenTalker/SadTalker). It utilizes low precision and parallelism to boost the inference speed by up to **10x** compared to the original implementation on one Sapphire Rapids (SPR) Xeon CPU (without any GPU used). Now it only optimizes the rendering stage, which is one of the two time-consuming bottlenecks. We will optimize the other, namely the enhancing stage in the future. This project is experimental and actively under development. Welcome to any advices and ideas.
+XTalker (**X**eon Sad**Talker**) is a faster and optimized implementation of [SadTalker](https://github.com/OpenTalker/SadTalker). It utilizes low precision and parallelism to boost the inference speed by up to **10x** compared to the original implementation on one Sapphire Rapids (SPR) Xeon CPU (without any GPU used). We now have optimized both the rendering and the enhancing stages, which are the main time-consuming stages for the original SadTalker. This project is experimental and actively under development. Welcome to any advices and ideas.
 
 ## How to use
 
@@ -32,8 +32,15 @@ export LD_PRELOAD=<PATH TO tcmalloc.so>:<PATH TO libiomp5.so>
 
 * Generate the parallelized execution script based on your hardware
 
+**Without enhancer**
 ```
 python generate_distributed_infer.py --slot=<parallelism number> --driven_audio xxx.wav --source_image xxx.jpg
+```
+
+**With enhancer**
+
+```
+python generate_distributed_infer.py --slot=<parallelism number> --driven_audio xxx.wav --source_image xxx.jpg --enhancer gfpgan
 ```
 
 Please change the parallelism number with your expected parallelism on your CPU.
@@ -41,8 +48,13 @@ Please change the parallelism number with your expected parallelism on your CPU.
 IOMP can be used together with IPEX bf16 to get a further acceleration. You just need to add `--bf16` when generating the
 `run_distributed_infer_xx.sh`, like following
 
+**Without enhancer**
 ```
 python generate_distributed_infer.py --slot=<parallelism number> --driven_audio xxx.wav --source_image xxx.jpg --bf16
+```
+**With enhancer**
+```
+python generate_distributed_infer.py --slot=<parallelism number> --driven_audio xxx.wav --source_image xxx.jpg --bf16 --enhancer gfpgan
 ```
 
 * Run the script
