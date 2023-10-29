@@ -7,7 +7,7 @@ import scipy.io as scio
 
 def get_facerender_data(coeff_path, pic_path, first_coeff_path, audio_path, 
                         batch_size, input_yaw_list=None, input_pitch_list=None, input_roll_list=None, 
-                        expression_scale=1.0, still_mode = False, preprocess='crop', size = 256):
+                        expression_scale=1.0, still_mode=False, preprocess='crop', size=256, facemodel='facevid2vid'):
 
     semantic_radius = 13
     video_name = os.path.splitext(os.path.split(coeff_path)[-1])[0]
@@ -25,11 +25,14 @@ def get_facerender_data(coeff_path, pic_path, first_coeff_path, audio_path,
     data['source_image'] = source_image_ts
  
     source_semantics_dict = scio.loadmat(first_coeff_path)
+    generated_dict = scio.loadmat(coeff_path)
 
-    if 'full' not in preprocess.lower():
+    if 'full' not in preprocess.lower() and facemodel != 'pirender':
         source_semantics = source_semantics_dict['coeff_3dmm'][:1,:70]         #1 70
+        generated_3dmm = generated_dict['coeff_3dmm'][:,:70]
     else:
         source_semantics = source_semantics_dict['coeff_3dmm'][:1,:73]         #1 70
+        generated_3dmm = generated_dict['coeff_3dmm'][:,:70]
 
     source_semantics_new = transform_semantic_1(source_semantics, semantic_radius)
     source_semantics_ts = torch.FloatTensor(source_semantics_new).unsqueeze(0)
@@ -37,12 +40,9 @@ def get_facerender_data(coeff_path, pic_path, first_coeff_path, audio_path,
     data['source_semantics'] = source_semantics_ts
 
     # target 
-    print(coeff_path)
-    generated_dict = scio.loadmat(coeff_path)
-    generated_3dmm = generated_dict['coeff_3dmm']
     generated_3dmm[:, :64] = generated_3dmm[:, :64] * expression_scale
 
-    if 'full' in preprocess.lower():
+    if 'full' in preprocess.lower() or facemodel == 'pirender':
         generated_3dmm = np.concatenate([generated_3dmm, np.repeat(source_semantics[:,70:], generated_3dmm.shape[0], axis=0)], axis=1)
 
     if still_mode:
@@ -132,4 +132,3 @@ def gen_camera_pose(camera_degree_list, frame_num, batch_size):
             new_degree_list.append(new_degree_list[-1])
     new_degree_np = np.array(new_degree_list).reshape(batch_size, -1) 
     return new_degree_np
-    
