@@ -4,10 +4,12 @@ import torch
 from time import  strftime
 import os, sys, time
 from argparse import ArgumentParser
+import platform
 
 from src.utils.preprocess import CropAndExtract
 from src.test_audio2coeff import Audio2Coeff  
 from src.facerender.animate import AnimateFromCoeff
+from src.facerender.pirender_animate import AnimateFromCoeff_PIRender
 from src.generate_batch import get_data
 from src.generate_facerender_batch import get_facerender_data
 from src.utils.init_path import init_path
@@ -48,7 +50,13 @@ def main(args):
     print("0000: Audio2Coeff")
     print(end_time - start_time)
     start_time = end_time
-    animate_from_coeff = AnimateFromCoeff(sadtalker_paths, device, args.bf16)
+    # animate_from_coeff = AnimateFromCoeff(sadtalker_paths, device, args.bf16)
+    if args.facerender == 'facevid2vid':
+        animate_from_coeff = AnimateFromCoeff(sadtalker_paths, device, args.bf16)
+    elif args.facerender == 'pirender':
+        animate_from_coeff = AnimateFromCoeff_PIRender(sadtalker_paths, device) # TODO add bf16 here
+    else:
+        raise(RuntimeError('Unknown model: {}'.format(args.facerender)))
     end_time = time.time()
     print("0001: AnimateFromCoeff")
     print(end_time - start_time)
@@ -109,7 +117,8 @@ def main(args):
     if args.rank == 0:
         data = get_facerender_data(coeff_path, crop_pic_path, first_coeff_path, audio_path,
                                     batch_size, input_yaw_list, input_pitch_list, input_roll_list,
-                                    expression_scale=args.expression_scale, still_mode=args.still, preprocess=args.preprocess, size=args.size)
+                                    expression_scale=args.expression_scale, still_mode=args.still, preprocess=args.preprocess, size=args.size,
+                                    facemodel=args.facerender)
         shutil.rmtree("workspace", ignore_errors=True)
         os.mkdir("workspace")
         #dict_keys(['source_image', 'source_semantics', 'frame_num', 'target_semantics_list', 'video_name', 'audio_path'])
@@ -205,10 +214,14 @@ if __name__ == '__main__':
     parser.add_argument('--p_num', type=int, default=1)
     # bf16
     parser.add_argument('--bf16', dest="bf16", action="store_true", help="whether to use bf16")
+    # facerender model: refer to https://github.com/OpenTalker/SadTalker/discussions/457
+    parser.add_argument("--facerender", default='facevid2vid', choices=['pirender', 'facevid2vid'])
 
     args = parser.parse_args()
     if torch.cuda.is_available() and not args.cpu:
         args.device = "cuda"
+    elif platform.system() == 'Darwin' and args.facerender == 'pirender': # macos
+        args.device = "mps"
     else:
         args.device = "cpu"
 
