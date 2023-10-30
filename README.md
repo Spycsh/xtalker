@@ -103,6 +103,18 @@ bash run_distributed_infer_<parallelism number>.sh
 
 int8 + IOMP still have some accuracy loss (maybe because of insufficient calibration or int8 precision itself), which is mainly manifested by noises in the generated frames. This is still under developing.
 
+
+### Acceleration by using PIRender
+
+Based on Discussion [#457](https://github.com/OpenTalker/SadTalker/discussions/457), PIRender is proved to be faster than facevid2vid for the face rendering stage, and it is orthogonal to our optimization. We integrate this feature into xtalker and apply our optimization to it to get further speedup. To use it, you can simply add a parameter `--facerender pirender` to the above commands.
+
+```
+python generate_distributed_infer.py --slot=<parallelism number> --driven_audio=xxx.wav --source_image=xxx.jpg --facerender=pirender
+bash run_distributed_infer_<parallelism number>.sh
+```
+
+> Notice: PIRender model now has accuracy issue in bf16 optimization so we disable bf16 here
+
 ### GC
 
 You can at any time do "garbage collection" when there is an abnormal exit by the following command:

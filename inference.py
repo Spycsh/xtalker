@@ -54,7 +54,7 @@ def main(args):
     if args.facerender == 'facevid2vid':
         animate_from_coeff = AnimateFromCoeff(sadtalker_paths, device, args.bf16)
     elif args.facerender == 'pirender':
-        animate_from_coeff = AnimateFromCoeff_PIRender(sadtalker_paths, device) # TODO add bf16 here
+        animate_from_coeff = AnimateFromCoeff_PIRender(sadtalker_paths, device, args.bf16) # TODO add bf16 here
     else:
         raise(RuntimeError('Unknown model: {}'.format(args.facerender)))
     end_time = time.time()
