@@ -113,7 +113,7 @@ python generate_distributed_infer.py --slot=<parallelism number> --driven_audio=
 bash run_distributed_infer_<parallelism number>.sh
 ```
 
-> Notice: PIRender model now has accuracy issue in bf16 optimization so we disable bf16 here
+> Notice: PIRender model now has accuracy issue in bf16 optimization so we disable bf16 here. If you want to involve this model, please also follow PIRender's [license](https://github.com/RenYurui/PIRender/blob/main/LICENSE.md) for appropriate usage.
 
 ### GC
 
